@@ -68,6 +68,12 @@ httpLocalRequest(ObjectPtr object, int method, int from, int to,
                                   requestor, closure);
 
     if(method >= METHOD_POST) {
+        /* A rejected side request (POST/PUT/...) is never forwarded, so its
+           body is never consumed.  Discard/drain the body and re-arm the read
+           side, otherwise the connection is left with CONN_READER set but no
+           pending read and its fd leaks (polipo issue #61). */
+        if(requestor)
+            httpClientDiscardBody(requestor->connection);
         abortObject(object, 405, internAtom("Method not allowed"));
     } else if(object->flags & OBJECT_INITIAL) {
         /* objectFillFromDisk already did the real work but we have to

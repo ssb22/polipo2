@@ -2088,7 +2088,11 @@ httpServerHandlerHeaders(int eof,
         init_time = &request->time0;
     else
         init_time = &current_time;
-    age = MIN(init_time->tv_sec - age, init_time->tv_sec);
+    /* RFC 7234 s4.2.3: Age is the time since the origin generated the
+       response.  If the origin sent an Age header, back-date from receipt
+       time; if it sent none, the response was generated for this very
+       request, so its age is 0 (polipo issue #80). */
+    age = (age>=0)?MAX(init_time->tv_sec-age,0):current_time.tv_sec;
 
     if(request->method == METHOD_HEAD || 
        code < 200 || code == 204 || code == 304)

@@ -231,6 +231,10 @@ tunnelConnectionHandler(int status,
     int rc;
 
     if(status < 0) {
+        /* The connecting fd is not yet stored in tunnel->fd2 (that only
+           happens in tunnelHandlerCommon on success).  Hand it to
+           tunnelError so it gets closed instead of being orphaned. */
+        tunnel->fd2 = request->fd;
         tunnelError(tunnel, 504, internAtomError(-status, "Couldn't connect"));
         return 1;
     }
@@ -248,6 +252,8 @@ tunnelSocksHandler(int status, SocksRequestPtr request)
     TunnelPtr tunnel = request->data;
 
     if(status < 0) {
+        /* Same orphaned-fd issue as tunnelConnectionHandler. */
+        tunnel->fd2 = request->fd;
         tunnelError(tunnel, 504, internAtomError(-status, "Couldn't connect"));
         return 1;
     }

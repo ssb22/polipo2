@@ -2089,7 +2089,7 @@ httpServerHandlerHeaders(int eof,
     else
         init_time = &current_time;
     /* RFC 7234 s4.2.3: Age is the time since the origin generated the
-       response.  If the origin sent an Age header, back-date from receipt
+       response.  If the origin sent an Age header, back-date from request
        time; if it sent none (-1) or 0 (which should be rare, probably
        an upstream proxy substituting 0 for none), the response was
        generated for this request, so don't add to age (polipo issue #80). */

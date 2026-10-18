@@ -391,8 +391,22 @@ httpServerAbortRequest(HTTPRequestPtr request, int fail,
     } else {
         HTTPRequestPtr requestor = request->request;
         if(requestor) {
+            HTTPConnectionPtr client = requestor->connection;
             requestor->request = NULL;
             request->request = NULL;
+            /* A side request (POST/PUT/OPTIONS/DELETE) leaves the client
+               connection with CONN_READER set, because the reader that
+               forwards (or discards) the body is only armed by
+               httpServerDoSide once the upstream connection is up.  If
+               the upstream connection fails before that, nothing is
+               ever armed to read from the client, so the connection
+               never notices the peer closing and its file descriptor
+               leaks.  Arm the reader here in that case. */
+            if(client && (client->flags & CONN_READER) &&
+               !(client->flags & CONN_SIDE_READER) && client->fd >= 0 &&
+               !fdReadRegistered(client->fd)) {
+                httpClientDiscardBody(client);
+            }
             httpClientError(requestor, code, retainAtom(message));
         }
         if(fail) {

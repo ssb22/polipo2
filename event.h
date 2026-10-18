@@ -77,6 +77,7 @@ FdEventHandlerPtr registerFdEvent(int fd, int poll_events,
 FdEventHandlerPtr registerFdEventHelper(FdEventHandlerPtr event);
 void unregisterFdEvent(FdEventHandlerPtr event);
 void pokeFdEvent(int fd, int status, int what);
+int fdReadRegistered(int fd);
 int workToDo(void);
 void eventLoop(void);
 ConditionPtr makeCondition(void);

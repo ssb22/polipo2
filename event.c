@@ -584,6 +584,21 @@ pokeFdEventHandler(TimeEventHandlerPtr tevent)
     return 1;
 }
 
+/* Is there anything registered to read from (or otherwise watch) this
+   file descriptor?  Used by the client to tell whether a read is
+   actually pending on a connection. */
+int
+fdReadRegistered(int fd)
+{
+    int i;
+    for(i = 0; i < fdEventNum; i++)
+        if(poll_fds[i].fd == fd)
+            break;
+    if(i >= fdEventNum)
+        return 0;
+    return (poll_fds[i].events & POLLIN) != 0;
+}
+
 void 
 pokeFdEvent(int fd, int status, int what)
 {

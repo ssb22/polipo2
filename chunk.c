@@ -42,7 +42,19 @@ preinitChunks()
 static void
 initChunksCommon()
 {
-#define ROUND_CHUNKS(a) a = (((unsigned long)(a) + CHUNK_SIZE - 1) / CHUNK_SIZE) * CHUNK_SIZE;
+/* Round up to a whole number of chunks.  Do the arithmetic in unsigned
+   long and stay within int: rounding a value within CHUNK_SIZE of
+   INT_MAX would otherwise wrap negative and be silently read as
+   "unset". */
+#define ROUND_CHUNKS(a) do { \
+        if((a) > 0) { \
+            unsigned long rounded = \
+                (((unsigned long)(a) + CHUNK_SIZE - 1) / CHUNK_SIZE) * CHUNK_SIZE; \
+            if(rounded > (unsigned long)INT_MAX) \
+                rounded -= CHUNK_SIZE; \
+            (a) = (int)rounded; \
+        } \
+    } while(0)
     int q;
 
     if(CHUNK_SIZE != 1 << log2_ceil(CHUNK_SIZE)) {

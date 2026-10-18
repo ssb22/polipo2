@@ -467,13 +467,19 @@ static int
 parseInt(char *buf, int offset, int *value_return)
 {
     char *p;
-    int value;
+    long value;
 
+    errno = 0;
     value = strtol(buf + offset, &p, 0);
     if(p <= buf + offset)
         return -1;
+    if(errno == ERANGE || value > INT_MAX || value < INT_MIN)
+        /* Out of range for the int-typed configuration variables.
+           Reject it instead of silently truncating to a value we
+           would then reset to the default. */
+        return -1;
 
-    *value_return = value;
+    *value_return = (int)value;
     return p - buf;
 }
 

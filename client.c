@@ -1101,6 +1101,8 @@ httpClientNoticeRequest(HTTPRequestPtr request, int novalidate, int recursionLev
 
     assert(!request->chandler);
 
+    request->flags &= ~(REQUEST_CACHE_LOOKUP_HIT | REQUEST_UPSTREAM);
+
     if(request->error_code) {
         if((request->flags & REQUEST_FORCE_ERROR) || REQUEST_SIDE(request) ||
            request->object == NULL ||
@@ -1178,6 +1180,9 @@ httpClientNoticeRequest(HTTPRequestPtr request, int novalidate, int recursionLev
             (request->object->length >= 0 && 
              request->object->length <= request->from) ||
             (objectHoleSize(request->object, request->from) == 0);
+
+    if(haveData)
+        request->flags |= REQUEST_CACHE_LOOKUP_HIT;
 
     if(request->flags & REQUEST_REQUESTED)
         validate = 0;
@@ -1266,6 +1271,7 @@ httpClientNoticeRequest(HTTPRequestPtr request, int novalidate, int recursionLev
 
     if(!(request->object->flags & OBJECT_INPROGRESS))
         request->object->flags |= OBJECT_VALIDATING;
+    request->flags |= REQUEST_UPSTREAM;
     rc = request->object->request(request->object,
                                   conditional ? METHOD_CONDITIONAL_GET : 
                                   request->method,
@@ -1739,8 +1745,6 @@ httpServeObject(HTTPConnectionPtr connection,int recursionLevel)
 
     n = httpWriteObjectHeaders(connection->buf, n, bufsize,
                                object, request->from, request->to);
-    if(n < 0)
-        goto fail;
 
     if(request->method != METHOD_HEAD && 
        condition_result != CONDITION_NOT_MODIFIED &&
@@ -1759,6 +1763,17 @@ httpServeObject(HTTPConnectionPtr connection,int recursionLevel)
                       "\r\nAge: %d",
                       (int)(current_time.tv_sec - object->age));
     }
+    if(!(object->flags & OBJECT_LOCAL))
+        /* add Squid-compatible cache outcome headers */
+        n = snnprintf(connection->buf, n, bufsize,
+                      "\r\nX-Cache: %s"
+                      "\r\nX-Cache-Lookup: %s",
+                      (request->flags & REQUEST_UPSTREAM) ?
+                      ((request->flags & REQUEST_CACHE_LOOKUP_HIT) ?
+                       "REVALIDATED" : "MISS") : "HIT",
+                      (request->flags & REQUEST_CACHE_LOOKUP_HIT) ?
+                      "HIT" : "MISS");
+
     n = snnprintf(connection->buf, n, bufsize,
                   "\r\nConnection: %s",
                   (request->flags & REQUEST_PERSISTENT) ? 

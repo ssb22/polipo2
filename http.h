@@ -63,6 +63,12 @@ typedef struct _HTTPRequest {
 #define REQUEST_PIPELINED 16
 /* This client-side request has already switched objects once. */
 #define REQUEST_SUPERSEDED 32
+/* The object had usable data in cache when this request was noticed.
+   Used for the X-Cache-Lookup header. */
+#define REQUEST_CACHE_LOOKUP_HIT 64
+/* This request has asked an upstream server (or revalidated), i.e. it was
+   not served entirely from cache.  Used for the X-Cache header. */
+#define REQUEST_UPSTREAM 128
 
 typedef struct _HTTPConnection {
     int flags;

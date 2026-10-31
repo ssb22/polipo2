@@ -49,6 +49,23 @@ int laxHttpParser = 1;
 
 static AtomListPtr censoredHeaders;
 
+/* Keep malformed header values on one log line, and avoid dumping an
+   unbounded server-controlled value into the log. */
+static void
+logBadETag(AtomPtr url, const char *buf, int start, int end)
+{
+    char value[129];
+    int i, n = 0;
+    for(i = start; i < end && n < sizeof(value)-1; i++) {
+        unsigned char c = (unsigned char)buf[i];
+        value[n++] = (c >= 32 && c <= 126) ? c : '?';
+    }
+    if(i < end && n >= 3) strcpy(value+n-3,"...");
+    else value[n] = '\0';
+    do_log(L_ERROR, "Couldn't parse ETag from %s: \"%s\".\n",
+           url ? scrub(url->string) : "(unknown URL)", scrub(value));
+}
+
 void
 preinitHttpParser()
 {
@@ -1034,7 +1051,7 @@ httpParseHeaders(int client, AtomPtr url,
             j = getNextETag(buf, value_start, &x, &y, &weak);
             if(j < 0) {
                 if(buf[value_start] != '\r' && buf[value_start] != '\n')
-                    do_log(L_ERROR, "Couldn't parse ETag.\n");
+                    logBadETag(url, buf, value_start, value_end);
             } else if(weak) {
                 do_log(L_WARN, "Server returned weak ETag -- ignored.\n");
             } else {

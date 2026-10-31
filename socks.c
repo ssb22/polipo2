@@ -58,7 +58,6 @@ do_socks_connect(char *name, int port,
 
 #else
 
-int authed = -1;
 AtomPtr socksParentProxy = NULL;
 AtomPtr socksProxyHost = NULL;
 int socksProxyPort = -1;
@@ -68,9 +67,12 @@ AtomPtr socksUserName = NULL;
 AtomPtr socksPassWord = NULL;
 AtomPtr socksProxyType = NULL;
 AtomPtr aSocks4a, aSocks5;
+static AtomPtr socksAuthCredentials = NULL;
 
 static int socksParentProxySetter(ConfigVariablePtr, void*);
 static int socksProxyTypeSetter(ConfigVariablePtr, void*);
+static int socksAuthCredentialsSetter(ConfigVariablePtr, void*);
+static void parseSocksAuthCredentials(void);
 static int do_socks_connect_common(SocksRequestPtr);
 static int socksDnsHandler(int, GethostbynameRequestPtr);
 static int socksConnectHandler(int, FdEventHandlerPtr, ConnectRequestPtr);
@@ -84,39 +86,60 @@ static int socks5ReadHandler2(int, FdEventHandlerPtr, StreamRequestPtr);
 void
 preinitSocks()
 {
-    AtomPtr socksAuthCredentials = internAtom("");
+    socksAuthCredentials = internAtom("");
 
     aSocks4a = internAtom("socks4a");
     aSocks5 = internAtom("socks5");
     socksProxyType = retainAtom(aSocks5);
-    socksUserName = internAtom("");
-    socksPassWord = internAtom("");
 
     CONFIG_VARIABLE_SETTABLE(socksParentProxy, CONFIG_ATOM_LOWER,
                              socksParentProxySetter,
                              "SOCKS parent proxy (host:port)");
     CONFIG_VARIABLE_SETTABLE(socksAuthCredentials, CONFIG_PASSWORD,
-                             configAtomSetter,
+                             socksAuthCredentialsSetter,
                              "SOCKS4a (or SOCKS5) credentials username:password");
     CONFIG_VARIABLE_SETTABLE(socksProxyType, CONFIG_ATOM_LOWER,
                              socksProxyTypeSetter,
                              "One of socks4a or socks5");
 
+    parseSocksAuthCredentials();
+}
 
-    // infer username and password from credentials
-    int rc = atomSplit(socksAuthCredentials, ':', &socksUserName, &socksPassWord);
-    if (rc < 0) {
-      do_log(L_ERROR, "Error splitting credentials");
-      exit(1);
-    } else if (rc == 0) {
-      // separator ':' not found
-      socksUserName = socksAuthCredentials;
-      releaseAtom(socksPassWord);
-      socksPassWord = NULL;
-    } else {
-      // split successfull: free memory
-      releaseAtom(socksAuthCredentials);
+/* Infer socksUserName and socksPassWord from socksAuthCredentials.
+   This must run after the configuration has been read (from initSocks)
+   and again whenever the variable is changed at runtime. */
+static void
+parseSocksAuthCredentials()
+{
+    AtomPtr user = NULL, pass = NULL;
+    int rc = 0;
+
+    if(socksAuthCredentials)
+        rc = atomSplit(socksAuthCredentials, ':', &user, &pass);
+    if(rc < 0) {
+        do_log(L_ERROR, "Couldn't split socksAuthCredentials");
+        exit(1);
+    } else if(rc == 0) {
+        /* no ':' -- username only (SOCKS4a userid), no SOCKS5 auth */
+        user = socksAuthCredentials ?
+            retainAtom(socksAuthCredentials) : internAtom("");
+        pass = NULL;
     }
+
+    if(socksUserName)
+        releaseAtom(socksUserName);
+    if(socksPassWord)
+        releaseAtom(socksPassWord);
+    socksUserName = user;
+    socksPassWord = pass;
+}
+
+static int
+socksAuthCredentialsSetter(ConfigVariablePtr var, void *value)
+{
+    configAtomSetter(var, value);
+    parseSocksAuthCredentials();
+    return 1;
 }
 
 static int
@@ -168,6 +191,8 @@ initSocks()
         releaseAtom(socksProxyAddress);
     socksProxyAddress = NULL;
     socksProxyAddressIndex = -1;
+
+    parseSocksAuthCredentials();
 
     if(socksProxyType != aSocks4a && socksProxyType != aSocks5) {
         do_log(L_ERROR, "Unknown socksProxyType %s\n", socksProxyType->string);
@@ -445,7 +470,7 @@ socks5ReadHandlerAuth(int status,
     }
 
     free(request->buf);
-    request->buf = malloc(5 + socksUserName->length + socksPassWord->length);
+    request->buf = malloc(10 + socksUserName->length + socksPassWord->length);
     if(request->buf == NULL) {
         status = -ENOMEM;
         goto error;
@@ -496,9 +521,8 @@ socks5ReadHandler(int status,
         status = -ESOCKS_PROTOCOL;
         goto error;
     }
-    authed = 1;
     free(request->buf);
-    request->buf = malloc(5 + request->name->length + 2);
+    request->buf = malloc(10 + request->name->length + 2);
     if(request->buf == NULL) {
         status = -ENOMEM;
         goto error;
@@ -544,9 +568,13 @@ socks5WriteHandler(int status,
         return 0;
     }
 
+    /* What we just wrote tells us which reply comes next: an RFC 1929
+       username/password request starts with version 1, a CONNECT
+       request with version 5.  (This used to be a global flag, which
+       broke when two handshakes were in progress at the same time.) */
     do_stream(IO_READ | IO_NOTNOW, request->fd, 0, request->buf, 10,
-              ((socksPassWord != NULL) && (authed == -1) ? socks5ReadHandler : socks5ReadHandler2),
-	      request);
+              request->buf[0] == 1 ? socks5ReadHandler : socks5ReadHandler2,
+              request);
     return 1;
 
  error:
@@ -561,7 +589,6 @@ socks5ReadHandler2(int status,
                    StreamRequestPtr srequest)
 {
     SocksRequestPtr request = srequest->data;
-    authed = -1;
     if(status < 0)
         goto error;
 

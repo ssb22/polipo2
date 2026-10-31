@@ -1416,13 +1416,25 @@ parseUrl(const char *url, int len,
         x = 7;
         if(x < len && url[x] == '[') {
             /* RFC 2732 */
+            int closed = 0;
             for(i = x + 1; i < len; i++) {
                 if(url[i] == ']') {
                     i++;
+                    closed = 1;
                     break;
                 }
-                if((url[i] != ':') && !letter(url[i]) && !digit(url[i]))
+                if((url[i] != ':') && (url[i] != '.' /* IPv4-mapped */) &&
+                   !letter(url[i]) && !digit(url[i]))
                     break;
+            }
+            if(!closed) {
+                /* Unterminated or malformed literal: don't hand a
+                   truncated hostname to the resolver. */
+                *x_return = -1;
+                *y_return = -1;
+                *port_return = -1;
+                *z_return = i;
+                return 0;
             }
         } else {
             for(i = x; i < len; i++)

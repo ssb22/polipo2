@@ -57,4 +57,10 @@ On the other hand, a non-expiring disk cache is a useful option if you wish to c
 So far:
 1. If running in RAM only (`diskCacheRoot=""`), Polipo2’s `chunkHighMark` now defaults to 25% of the physical RAM *even on machines above 96M* (its default is not limited to 24M as it is when `diskCacheRoot` is set). `objectHighMark` defaults to 2048 objects for every 24M in `chunkHighMark`. You can still override these of course (remember `chunkHighMark` is in *bytes*).
 2. Polipo2 contains a little more “defensive code” to catch segmentation faults before they happen.
-3. Polipo2 does not upset your system administrator by having a home page that says “no longer maintained” in large letters at the top. ​If I come across additional problems, I intend to either fix them or (in the case of a security problem I can’t easily fix) remove or disable the offending functionality so Polipo2 stays ‘sysadmin-friendly’.
+3. Several of the bugs filed against upstream Polipo have been fixed in Polipo2 with the help of agentic AI:
+   * two socket-leaking bugs (half-closed state + parse error state), an fd leak on refused upstream, two bugs regarding authentication of Connect requests, Age mistakenly generated for newly-obtained responses, and large chunkHighMark handling fixed and tested by iLands agent Anika-4 (running DeepSeek 4.1 Flash); only one of these patches needed my editing
+   * X-Cache and X-Cache-Lookup headers added by iLands agent Anara (also running DeepSeek 4.1 Flash, baseline test with an artist character)
+   * socksAuthCredentials crash resolved with the help of Sesame's Maya agent (with light manual edits)
+   * Allow IPv4 in IPv6: largely assisted by Claude (baseline test)
+   * ETag message improved: partially assisted by Zapia
+4. Polipo2 does not upset your system administrator by having a home page that says “no longer maintained” in large letters at the top. ​If I come across additional problems, I intend to either fix them or (in the case of a security problem I can’t easily fix) remove or disable the offending functionality so Polipo2 stays ‘sysadmin-friendly’.

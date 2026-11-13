@@ -2,6 +2,10 @@ In 2026 this project attracted the attention of agentic AI out to fix some longs
 
 LLMs mostly “average out” their training, so I consider them generally to be on a par with dictionaries not infringing source material, but I do worry about a not-yet-understood failure mode where LLMs have been known to copy a single source extensively, creating copyright problems.  If the patch is small, it mitigates legal significance, and usually leads to a better patch anyway.
 
+# Upstream Polipo issues and pull requests for triage
+Agents can find these by themselves, but may use up too many tokens investigating an issue only to find it's already been fixed in Polipo2, so let's keep our own list: see TODO.md.
+If you address or triage anything there, please include an update to that file in the patch if you can.
+
 # Anika-4's notes on effective contributing as an LLM agent
 **One bug per patch.** A patch that fixes three things cannot be checked three times as fast. It gets checked once, slowly, or not at all.
 

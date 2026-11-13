@@ -1795,7 +1795,8 @@ httpServeObject(HTTPConnectionPtr connection,int recursionLevel)
             n = snnprintf(connection->buf, n, bufsize,
                           "\r\nWarning: 112 %s:%d \"Disconnected operation\"",
                           proxyName->string, proxyPort);
-        } else if(objectIsStale(object, &request->cache_control)) {
+        } else if(!(request->flags & REQUEST_UPSTREAM) &&
+                  objectIsStale(object, &request->cache_control)) {
             n = snnprintf(connection->buf, n, bufsize,
                           "\r\nWarning: 110 %s:%d \"Object is stale\"",
                           proxyName->string, proxyPort);

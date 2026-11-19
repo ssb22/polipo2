@@ -2602,6 +2602,12 @@ httpServerReadData(HTTPConnectionPtr connection, int immediate)
 
         httpConnectionDestroyBuf(connection);
 
+        /* Make sure to call httpSetTimeout here, or an
+           origin that goes silent in the middle of a
+           body (a WAN cut, no FIN) would leave the object in progress
+           and every request for it waiting forever. */
+        httpSetTimeout(connection, serverTimeout);
+
         /* The order of allocation is important in case we run out of
            memory. */
         lockChunk(object, i);
